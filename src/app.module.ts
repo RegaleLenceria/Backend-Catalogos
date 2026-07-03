@@ -6,6 +6,7 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
+import { ContactInfoModule } from './contact-info/contact-info.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CatalogsModule } from './catalogs/catalogs.module';
     UsersModule,
     AuthModule,
     CatalogsModule,
+    ContactInfoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
