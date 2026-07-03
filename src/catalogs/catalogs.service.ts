@@ -79,72 +79,38 @@ export class CatalogsService {
       throw new InternalServerErrorException(dbError.message);
     }
 
-    // Si había URL de imagen o PDF, intentamos borrarlos de Storage.
-    // Asumiremos que las URLs guardadas son los "paths" dentro del bucket, 
-    // o que podemos extraer el path a partir de la URL.
-    // Ejemplo: 'catalogs_files/imagen.png'
-    
-    const filesToRemove: string[] = [];
-    if (catalog.imageUrl) {
-      const imagePath = this.extractStoragePath(catalog.imageUrl);
-      if (imagePath) filesToRemove.push(imagePath);
-    }
-    if (catalog.pdfUrl) {
-      const pdfPath = this.extractStoragePath(catalog.pdfUrl);
-      if (pdfPath) filesToRemove.push(pdfPath);
-    }
+    const fs = require('fs');
+    const path = require('path');
 
-    if (filesToRemove.length > 0) {
-      // Reemplaza 'tu_bucket' por el nombre real de tu bucket en Supabase
-      const { error: storageError } = await supabase
-        .storage
-        .from('catalogs_bucket')
-        .remove(filesToRemove);
-      
-      if (storageError) {
-        // Podrías loguear esto, ya que el DB row se borró pero falló el borrado de archivos
-        console.error('Error al borrar archivos de Storage:', storageError.message);
+    const deleteLocalFile = (url: string) => {
+      if (!url) return;
+      try {
+        // Extraer el nombre del archivo de la URL
+        // Ejemplo de URL: http://localhost:3001/uploads/archivo.png
+        const parts = url.split('/uploads/');
+        if (parts.length > 1) {
+          const fileName = parts[1];
+          const filePath = path.join(process.cwd(), 'uploads', fileName);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      } catch (err) {
+        console.error('Error al borrar archivo local:', err);
       }
-    }
+    };
+
+    if (catalog.imageUrl) deleteLocalFile(catalog.imageUrl);
+    if (catalog.pdfUrl) deleteLocalFile(catalog.pdfUrl);
 
     return { message: `Catálogo con ID ${id} eliminado correctamente` };
   }
 
-  async uploadFile(file: Express.Multer.File) {
-    const supabase = this.supabaseService.getClient();
-    const fileExt = file.originalname.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
-
-    const { data, error } = await supabase.storage
-      .from('catalogs_bucket')
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype,
-      });
-
-    if (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from('catalogs_bucket')
-      .getPublicUrl(filePath);
-
-    return { url: publicUrlData.publicUrl };
-  }
-
-  /**
-   * Helper para extraer el path interno del archivo si guardaste una URL completa.
-   * Dependerá de cómo guardes la URL en createCatalogDto.
-   * Si guardas el path directo, puedes simplemente retornar la url.
-   */
-  private extractStoragePath(url: string): string | null {
-    // Si la URL es completa de Supabase, podemos buscar la parte final
-    // Ejemplo de URL: https://xyz.supabase.co/storage/v1/object/public/catalogs_bucket/carpeta/archivo.png
-    if (url.includes('/storage/v1/object/public/')) {
-      const parts = url.split('/storage/v1/object/public/catalogs_bucket/');
-      return parts.length > 1 ? parts[1] : null;
-    }
-    return url; // Si ya es un path relativo
+  uploadLocalFile(file: Express.Multer.File, req: any) {
+    // Generar la URL base usando la petición actual
+    // Si tienes un proxy o dominio configurado en prod, puedes usar process.env.APP_URL
+    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${baseUrl}/uploads/${file.filename}`;
+    return { url: fileUrl };
   }
 }

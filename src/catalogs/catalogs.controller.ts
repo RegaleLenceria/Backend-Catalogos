@@ -1,9 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import type { Request } from 'express';
 import { CatalogsService } from './catalogs.service';
 import { CreateCatalogDto } from './dto/create-catalog.dto';
 import { UpdateCatalogDto } from './dto/update-catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import * as fs from 'fs';
+
+// Asegurarse de que el directorio existe
+if (!fs.existsSync('./uploads')) {
+  fs.mkdirSync('./uploads');
+}
 
 @Controller('catalogs')
 export class CatalogsController {
@@ -11,9 +20,20 @@ export class CatalogsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
-    return this.catalogsService.uploadFile(file);
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads',
+      filename: (req, file, cb) => {
+        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        return cb(null, `${randomName}${extname(file.originalname)}`);
+      }
+    }),
+    limits: {
+      fileSize: 250 * 1024 * 1024, // 250 MB
+    },
+  }))
+  uploadFile(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+    return this.catalogsService.uploadLocalFile(file, req);
   }
 
   @UseGuards(JwtAuthGuard)
