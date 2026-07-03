@@ -110,6 +110,29 @@ export class CatalogsService {
     return { message: `Catálogo con ID ${id} eliminado correctamente` };
   }
 
+  async uploadFile(file: Express.Multer.File) {
+    const supabase = this.supabaseService.getClient();
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('catalogs_bucket')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+      });
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('catalogs_bucket')
+      .getPublicUrl(filePath);
+
+    return { url: publicUrlData.publicUrl };
+  }
+
   /**
    * Helper para extraer el path interno del archivo si guardaste una URL completa.
    * Dependerá de cómo guardes la URL en createCatalogDto.
