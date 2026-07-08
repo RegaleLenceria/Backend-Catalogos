@@ -107,9 +107,9 @@ export class CatalogsService {
   }
 
   uploadLocalFile(file: Express.Multer.File, req: any) {
-    // Generar la URL base usando la petición actual
-    // Si tienes un proxy o dominio configurado en prod, puedes usar process.env.APP_URL
-    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+    const host = req.get('host') || '';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
     const fileUrl = `${baseUrl}/uploads/${file.filename}`;
     return { url: fileUrl };
   }
